@@ -460,7 +460,7 @@ function App() {
           </div>
           <div className="record-buttons">
             {!active && <button type="button" className="primary-button" onClick={() => void startRecording()} disabled={!selectedId && !!bridge} data-testid="button-start-recording"><Play size={14} fill="currentColor" /> Start recording</button>}
-            {state === 'recording' && <button type="button" className="secondary-button" onClick={pauseRecording} data-testid="button-pause-recording"><Pause size={14} fill="currentColor" /> Pause</button>}
+            {(state === 'idle' || state === 'recording') && <button type="button" className="secondary-button" onClick={pauseRecording} disabled={state !== 'recording'} data-testid="button-pause-recording"><Pause size={14} fill="currentColor" /> Pause</button>}
             {state === 'paused' && <button type="button" className="primary-button" onClick={resumeRecording} data-testid="button-resume-recording"><Play size={14} fill="currentColor" /> Resume</button>}
             {(state === 'recording' || state === 'paused') && <button type="button" className="danger-button" onClick={() => void stopRecording()} data-testid="button-stop-recording"><Square size={13} fill="currentColor" /> Stop</button>}
             {state === 'stopping' && <button type="button" className="secondary-button" disabled data-testid="button-saving-recording"><RefreshCw size={13} /> Saving…</button>}
