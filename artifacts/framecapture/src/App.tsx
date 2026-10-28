@@ -4,6 +4,7 @@ import {
   Check,
   ChevronDown,
   Clapperboard,
+  Download,
   Folder,
   FolderOpen,
   HardDrive,
@@ -374,7 +375,22 @@ function App() {
           <span className="brand-mark"><Clapperboard aria-hidden="true" /></span>
           <span>FrameCapture</span>
         </div>
-        <div className="top-meta"><span><i className="status-led" />{bridge ? 'Capture engine ready' : 'Browser capture preview'}</span><span>LOCAL · MP4</span></div>
+        <div className="top-meta">
+          <span><i className="status-led" />{bridge ? 'Capture engine ready' : 'Browser capture preview'}</span>
+          <span>LOCAL · MP4</span>
+          {import.meta.env.DEV && (
+            <a
+              className="download-app-link"
+              href="/download/windows-app"
+              aria-label="Download FrameCapture for Windows"
+              title="Download FrameCapture for Windows"
+              data-testid="link-download-windows-app"
+            >
+              <Download aria-hidden="true" size={14} />
+              <span className="download-app-label">Download Windows app</span>
+            </a>
+          )}
+        </div>
       </header>
       <main className="main-wrap">
         <div className="page-intro">

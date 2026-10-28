@@ -74,6 +74,8 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .brand-mark { width:31px; height:31px; border-radius:9px; display:grid; place-items:center; background:#245846; color:#f5f4eb; }
 .brand-mark svg { width:17px; height:17px; }
 .top-meta { display:flex; align-items:center; gap:16px; color:#6d756f; font:11px var(--app-font-mono); letter-spacing:.06em; text-transform:uppercase; }
+.download-app-link { display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:8px 11px; border:1px solid #285c43; border-radius:7px; color:#fff; background:#285c43; font:700 10px var(--app-font-sans); letter-spacing:0; text-decoration:none; text-transform:none; transition:background .15s,transform .15s; }
+.download-app-link:hover { background:#1e4d37; transform:translateY(-1px); }
 .status-led { width:7px; height:7px; border-radius:50%; background:#438b67; display:inline-block; margin-right:7px; box-shadow:0 0 0 3px #dceadf; }
 .main-wrap { max-width:1180px; margin:0 auto; padding-top:35px; }
 .page-intro { display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:27px; gap:20px; }
@@ -171,6 +173,9 @@ h1 { margin:7px 0 0; font-size:32px; line-height:1.1; letter-spacing:-.055em; fo
   .app-shell { padding:0 14px 24px; }
   .topbar { height:62px; }
   .top-meta { font-size:9px; gap:8px; }
+  .download-app-link { width:33px; height:33px; padding:0; }
+  .download-app-label { display:none; }
+  .top-meta > span:first-child { display:none; }
   .main-wrap { padding-top:25px; }
   .page-intro { align-items:flex-start; flex-direction:column; margin-bottom:20px; }
   h1 { font-size:27px; }
