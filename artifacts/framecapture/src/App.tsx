@@ -15,8 +15,9 @@ import {
   Video,
   AppWindow,
 } from 'lucide-react';
+import { AnnotationCanvas, AnnotationToolbar } from './components/AnnotationOverlay';
 
-type Source = { id: string; name: string; type: 'screen' | 'window'; thumbnail: string };
+type Source = { id: string; name: string; type: 'screen' | 'window'; thumbnail: string; displayId?: string };
 type Recording = { id: string; name: string; path: string; createdAt: string; size: number; duration: number };
 type FrameCaptureBridge = {
   getSources(): Promise<Source[]>;
@@ -29,6 +30,8 @@ type FrameCaptureBridge = {
   writeRecordingChunk(id: string, chunk: ArrayBuffer): Promise<void>;
   finishRecording(id: string, durationSeconds: number): Promise<Recording>;
   cancelRecording(id: string): Promise<void>;
+  openAnnotationOverlay(sourceId: string): Promise<void>;
+  closeAnnotationOverlay(): Promise<void>;
   onExportProgress(callback: (progress: number) => void): () => void;
 };
 declare global {
@@ -58,6 +61,7 @@ function App() {
   const [fps, setFps] = useState('30');
   const [microphone, setMicrophone] = useState(false);
   const [systemAudio, setSystemAudio] = useState(true);
+  const [annotationsEnabled, setAnnotationsEnabled] = useState(false);
   const [directory, setDirectory] = useState('Loading output location…');
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [state, setState] = useState<RecordState>('idle');
@@ -125,6 +129,7 @@ function App() {
 
   const selectMode = async (next: Mode) => {
     setMode(next);
+    if (next !== 'screen') setAnnotationsEnabled(false);
     const matching = sources.find((source) => source.type === next);
     if (matching) {
       setSelectedId(matching.id);
@@ -137,6 +142,7 @@ function App() {
   const selectSource = async (source: Source) => {
     setSelectedId(source.id);
     setMode(source.type);
+    if (source.type !== 'screen') setAnnotationsEnabled(false);
     setError('');
     if (bridge) {
       try { await bridge.selectSource(source.id); setStatus(`${source.name} selected`); }
@@ -186,7 +192,16 @@ function App() {
       setError('Screen capture is unavailable in this browser. Open FrameCapture on a supported desktop browser.');
       return;
     }
+    if (annotationsEnabled && (!bridge || mode !== 'screen')) {
+      setError('On-screen drawing is available in the Windows desktop app when recording a screen.');
+      return;
+    }
+    let annotationOverlayOpened = false;
     try {
+      if (annotationsEnabled && bridge) {
+        await bridge.openAnnotationOverlay(selectedId);
+        annotationOverlayOpened = true;
+      }
       setStatus('Choose a screen or window in the capture prompt…');
       const quality = resolution === '4K' ? { width: 3840, height: 2160 } : resolution === '1440p' ? { width: 2560, height: 1440 } : { width: 1920, height: 1080 };
       if (microphone || systemAudio) audioContext.current = new AudioContext();
@@ -237,6 +252,10 @@ function App() {
       };
       recorder.onerror = () => setError('Recording encountered an unexpected capture error.');
       recorder.onstop = async () => {
+        if (annotationOverlayOpened && bridge) {
+          await bridge.closeAnnotationOverlay().catch(() => undefined);
+          annotationOverlayOpened = false;
+        }
         try {
           if (bridge && recordingId.current) {
             await Promise.all(pendingWrites.current);
@@ -270,6 +289,9 @@ function App() {
       setState('recording');
       setStatus(bridge ? 'Recording to your selected output folder' : 'Recording · browser preview WebM capture');
     } catch (problem) {
+      if (annotationOverlayOpened && bridge) {
+        await bridge.closeAnnotationOverlay().catch(() => undefined);
+      }
       stopTracks();
       if (problem instanceof DOMException && problem.name === 'NotAllowedError') {
         setStatus('Capture was cancelled');
@@ -323,6 +345,8 @@ function App() {
   };
 
   const visibleSources = sources.filter((source) => source.type === mode);
+  const selectedSource = sources.find((source) => source.id === selectedId);
+  const canAnnotate = Boolean(bridge && selectedSource?.type === 'screen');
   const active = state === 'recording' || state === 'paused' || state === 'stopping';
 
   return (
@@ -394,6 +418,10 @@ function App() {
                 <div className="toggle-copy">System audio <small>Capture audio from the source</small></div>
                 <button type="button" role="switch" aria-checked={systemAudio} className={`switch ${systemAudio ? 'on' : ''}`} onClick={() => setSystemAudio(!systemAudio)} data-testid="toggle-system-audio"><span className="switch-thumb" /></button>
               </div>
+              <div className="toggle-row annotation-setting">
+                <div className="toggle-copy">Draw on screen <small>{canAnnotate ? 'Show annotation tools while recording' : 'Windows desktop app · screen capture only'}</small></div>
+                <button type="button" role="switch" aria-checked={annotationsEnabled} aria-label="Draw on screen" className={`switch ${annotationsEnabled ? 'on' : ''}`} onClick={() => setAnnotationsEnabled(!annotationsEnabled)} disabled={!canAnnotate || active} data-testid="toggle-screen-annotations"><span className="switch-thumb" /></button>
+              </div>
               <div className="capability-note" data-testid="note-hardware-capability"><AlertTriangle size={14} /><span>4K at 60 FPS needs capable graphics hardware and fast storage. Available performance varies by PC.</span></div>
             </section>
             <section className="panel output-panel">
@@ -440,4 +468,14 @@ function App() {
   );
 }
 
-export default App;
+function AnnotationWindow({ surface }: { surface: 'canvas' | 'toolbar' }) {
+  return surface === 'canvas'
+    ? <AnnotationCanvas />
+    : <div className="annotation-toolbar-window"><AnnotationToolbar /></div>;
+}
+
+export default function AppEntry() {
+  if (window.location.hash === '#annotation-canvas') return <AnnotationWindow surface="canvas" />;
+  if (window.location.hash === '#annotation-toolbar') return <AnnotationWindow surface="toolbar" />;
+  return <App />;
+}

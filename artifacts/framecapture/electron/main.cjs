@@ -1,5 +1,13 @@
-const { app, BrowserWindow, desktopCapturer, dialog, ipcMain, session, shell } =
-  require("electron");
+const {
+  app,
+  BrowserWindow,
+  desktopCapturer,
+  dialog,
+  ipcMain,
+  screen,
+  session,
+  shell,
+} = require("electron");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
@@ -10,6 +18,16 @@ const activeRecordings = new Map();
 let mainWindow;
 let selectedSourceId;
 let outputDirectory;
+let annotationCanvasWindow;
+let annotationToolbarWindow;
+
+const annotationTools = new Set([
+  "cursor",
+  "pen",
+  "arrow",
+  "rectangle",
+  "spotlight",
+]);
 
 const settingsPath = () => path.join(app.getPath("userData"), "settings.json");
 
@@ -61,6 +79,7 @@ async function getCaptureSources() {
     name: source.name,
     type: source.id.startsWith("screen:") ? "screen" : "window",
     thumbnail: source.thumbnail.toDataURL(),
+    displayId: source.display_id || undefined,
   }));
 }
 
@@ -149,6 +168,94 @@ function transcodeToMp4(inputPath, outputPath, durationMs) {
   });
 }
 
+function destroyAnnotationOverlays() {
+  const windows = [annotationToolbarWindow, annotationCanvasWindow];
+  annotationToolbarWindow = null;
+  annotationCanvasWindow = null;
+  for (const overlayWindow of windows) {
+    if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.destroy();
+  }
+}
+
+async function openAnnotationOverlays(display) {
+  destroyAnnotationOverlays();
+  const preloadPath = path.join(__dirname, "overlay-preload.cjs");
+  const overlayPage = path.join(__dirname, "../dist/public/index.html");
+  const bounds = display.bounds;
+
+  annotationCanvasWindow = new BrowserWindow({
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    show: false,
+    frame: false,
+    transparent: true,
+    backgroundColor: "#00000000",
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    movable: false,
+    focusable: true,
+    skipTaskbar: true,
+    webPreferences: {
+      preload: preloadPath,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  annotationCanvasWindow.setAlwaysOnTop(true, "floating");
+  annotationCanvasWindow.setIgnoreMouseEvents(true, { forward: true });
+  annotationCanvasWindow.webContents.setWindowOpenHandler(() => ({
+    action: "deny",
+  }));
+
+  const toolbarWidth = Math.min(560, Math.max(400, bounds.width - 24));
+  const toolbarHeight = 72;
+  annotationToolbarWindow = new BrowserWindow({
+    x: bounds.x + Math.round((bounds.width - toolbarWidth) / 2),
+    y: bounds.y + 18,
+    width: toolbarWidth,
+    height: toolbarHeight,
+    show: false,
+    frame: false,
+    transparent: true,
+    backgroundColor: "#00000000",
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    movable: false,
+    focusable: true,
+    skipTaskbar: true,
+    webPreferences: {
+      preload: preloadPath,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  annotationToolbarWindow.setAlwaysOnTop(true, "screen-saver");
+  annotationToolbarWindow.setContentProtection(true);
+  annotationToolbarWindow.webContents.setWindowOpenHandler(() => ({
+    action: "deny",
+  }));
+
+  try {
+    await annotationCanvasWindow.loadFile(overlayPage, {
+      hash: "annotation-canvas",
+    });
+    await annotationToolbarWindow.loadFile(overlayPage, {
+      hash: "annotation-toolbar",
+    });
+    annotationCanvasWindow.showInactive();
+    annotationToolbarWindow.showInactive();
+  } catch (error) {
+    destroyAnnotationOverlays();
+    throw error;
+  }
+}
+
 function registerIpcHandlers() {
   ipcMain.handle("capture:get-sources", async (event) => {
     assertTrustedSender(event);
@@ -171,6 +278,78 @@ function registerIpcHandlers() {
 
     selectedSourceId = sourceId;
     return true;
+  });
+
+  ipcMain.handle("annotation:open", async (event, sourceId) => {
+    assertTrustedSender(event);
+    if (typeof sourceId !== "string" || sourceId !== selectedSourceId) {
+      throw new Error("Select the screen you want to annotate.");
+    }
+
+    const sources = await desktopCapturer.getSources({
+      types: ["screen"],
+      thumbnailSize: { width: 0, height: 0 },
+    });
+    const captureSource = sources.find((source) => source.id === sourceId);
+    if (!captureSource?.display_id) {
+      throw new Error("FrameCapture could not identify the selected display.");
+    }
+
+    const display = screen
+      .getAllDisplays()
+      .find((candidate) => String(candidate.id) === captureSource.display_id);
+    if (!display) {
+      throw new Error("The selected display is no longer available.");
+    }
+
+    await openAnnotationOverlays(display);
+    return true;
+  });
+
+  ipcMain.handle("annotation:close", async (event) => {
+    assertTrustedSender(event);
+    destroyAnnotationOverlays();
+    return true;
+  });
+
+  ipcMain.on("annotation:action", (event, action) => {
+    if (
+      !event.senderFrame?.url?.startsWith("file://") ||
+      event.sender !== annotationToolbarWindow?.webContents ||
+      !annotationCanvasWindow ||
+      annotationCanvasWindow.isDestroyed() ||
+      !action ||
+      typeof action !== "object"
+    ) {
+      return;
+    }
+
+    if (action.type === "tool" && annotationTools.has(action.tool)) {
+      annotationCanvasWindow.setIgnoreMouseEvents(action.tool === "cursor", {
+        forward: true,
+      });
+      annotationCanvasWindow.webContents.send("annotation:action", {
+        type: "tool",
+        tool: action.tool,
+      });
+      return;
+    }
+    if (
+      action.type === "color" &&
+      typeof action.color === "string" &&
+      /^#[0-9a-f]{6}$/i.test(action.color)
+    ) {
+      annotationCanvasWindow.webContents.send("annotation:action", {
+        type: "color",
+        color: action.color,
+      });
+      return;
+    }
+    if (action.type === "undo" || action.type === "clear") {
+      annotationCanvasWindow.webContents.send("annotation:action", {
+        type: action.type,
+      });
+    }
   });
 
   ipcMain.handle("settings:get-output-directory", async (event) => {
@@ -377,6 +556,7 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, "../dist/public/index.html"));
   mainWindow.on("closed", () => {
     mainWindow = null;
+    destroyAnnotationOverlays();
   });
 }
 
@@ -426,3 +606,5 @@ app.whenReady().then(async () => {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
+
+app.on("before-quit", destroyAnnotationOverlays);

@@ -1,0 +1,169 @@
+.annotation-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  width: 100vw;
+  height: 100dvh;
+  display: block;
+  background: transparent;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.annotation-canvas.is-passive {
+  pointer-events: none;
+  cursor: default;
+}
+
+.annotation-canvas.is-spotlight {
+  cursor: none;
+}
+
+.annotation-toolbar {
+  position: fixed;
+  z-index: 90;
+  left: 50%;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 7px 11px;
+  border: 1px solid rgba(176, 183, 205, .19);
+  border-radius: 17px;
+  color: #e9eaf0;
+  background: rgba(15, 17, 25, .96);
+  box-shadow: 0 13px 38px rgba(9, 11, 17, .36), inset 0 1px 0 rgba(255, 255, 255, .045);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  user-select: none;
+}
+
+.annotation-window,
+.annotation-window body {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+.annotation-window #root {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+.annotation-toolbar-window {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: transparent;
+}
+
+.annotation-toolbar-window .annotation-toolbar {
+  position: relative;
+  inset: auto;
+  left: auto;
+  bottom: auto;
+  transform: none;
+}
+
+.annotation-tool-group,
+.annotation-color-group,
+.annotation-command-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.annotation-tool-button {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: #b6bac7;
+  background: transparent;
+  transition: color .16s ease, background-color .16s ease, border-color .16s ease, transform .16s ease;
+}
+
+.annotation-tool-button:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, .09);
+}
+
+.annotation-tool-button:active {
+  transform: scale(.94);
+}
+
+.annotation-tool-button.is-selected {
+  color: #fff;
+  background: #5943f4;
+  box-shadow: 0 4px 13px rgba(73, 53, 231, .38), inset 0 1px 0 rgba(255, 255, 255, .19);
+}
+
+.annotation-color-group {
+  gap: 7px;
+  padding: 0 2px;
+}
+
+.annotation-color-button {
+  --swatch-color: #fff;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  padding: 0;
+  border: 2px solid rgba(255, 255, 255, .2);
+  border-radius: 50%;
+  background: var(--swatch-color);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08);
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+
+.annotation-color-button:hover {
+  transform: scale(1.13);
+}
+
+.annotation-color-button.is-selected {
+  box-shadow: 0 0 0 2px #151721, 0 0 0 3.5px #eef0f7;
+  transform: scale(1.04);
+}
+
+.annotation-toolbar-divider {
+  width: 1px;
+  height: 25px;
+  flex: none;
+  background: rgba(211, 216, 232, .15);
+}
+
+.annotation-toolbar button:focus-visible {
+  outline: 2px solid #f1f2ff;
+  outline-offset: 3px;
+}
+
+@media (max-width: 560px) {
+  .annotation-toolbar {
+    bottom: max(14px, env(safe-area-inset-bottom));
+    gap: 6px;
+    min-height: 50px;
+    padding: 6px 8px;
+    border-radius: 14px;
+  }
+  .annotation-tool-group,
+  .annotation-command-group { gap: 1px; }
+  .annotation-tool-button { width: 31px; height: 34px; border-radius: 9px; }
+  .annotation-color-group { gap: 5px; }
+  .annotation-color-button { width: 17px; height: 17px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .annotation-toolbar *,
+  .annotation-toolbar *::before,
+  .annotation-toolbar *::after { transition: none !important; }
+}

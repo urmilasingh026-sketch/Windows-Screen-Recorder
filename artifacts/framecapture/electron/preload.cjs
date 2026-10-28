@@ -17,6 +17,9 @@ contextBridge.exposeInMainWorld("frameCapture", {
   finishRecording: (id, durationSeconds) =>
     ipcRenderer.invoke("recording:finish", id, durationSeconds),
   cancelRecording: (id) => ipcRenderer.invoke("recording:cancel", id),
+  openAnnotationOverlay: (sourceId) =>
+    ipcRenderer.invoke("annotation:open", sourceId),
+  closeAnnotationOverlay: () => ipcRenderer.invoke("annotation:close"),
   onExportProgress: (callback) => {
     const listener = (_event, progress) => callback(progress);
     ipcRenderer.on("recording:export-progress", listener);
