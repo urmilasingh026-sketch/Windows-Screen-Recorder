@@ -110,6 +110,7 @@
       }
     ],
     "win": {
+      "icon": "electron/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -123,6 +124,9 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "installerIcon": "electron/icon.ico",
+      "uninstallerIcon": "electron/icon.ico",
+      "installerHeaderIcon": "electron/icon.ico",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     }

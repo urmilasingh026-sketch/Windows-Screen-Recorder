@@ -9,7 +9,7 @@ import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
 const appPackage = JSON.parse(
   readFileSync(path.resolve(import.meta.dirname, 'package.json'), 'utf8'),
 ) as { version: string };
-const windowsInstallerName = `FrameCapture-Portable-${appPackage.version}.exe`;
+const windowsInstallerName = `FrameCapture-Setup-${appPackage.version}.exe`;
 const windowsInstallerPath = path.resolve(
   import.meta.dirname,
   'release',

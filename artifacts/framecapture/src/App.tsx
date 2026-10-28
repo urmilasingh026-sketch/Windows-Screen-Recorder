@@ -214,12 +214,25 @@ function App() {
       }
       setStatus('Choose a screen or window in the capture prompt…');
       const quality = resolution === '4K' ? { width: 3840, height: 2160 } : resolution === '1440p' ? { width: 2560, height: 1440 } : { width: 1920, height: 1080 };
+      const targetFps = Number(fps);
       if (microphone || systemAudio) audioContext.current = new AudioContext();
       const display = await navigator.mediaDevices.getDisplayMedia({
-        video: { ...quality, frameRate: Number(fps) },
+        video: {
+          width: { ideal: quality.width, max: quality.width },
+          height: { ideal: quality.height, max: quality.height },
+          frameRate: { ideal: targetFps, max: targetFps },
+        },
         audio: systemAudio,
       });
       activeStream.current = display;
+      const captureSettings = display.getVideoTracks()[0]?.getSettings();
+      const capturedSize = captureSettings?.width && captureSettings?.height
+        ? `${captureSettings.width} × ${captureSettings.height}`
+        : `up to ${resolution}`;
+      const capturedFps = captureSettings?.frameRate
+        ? Math.round(captureSettings.frameRate)
+        : targetFps;
+      const captureSummary = `${capturedSize} · ${capturedFps} FPS`;
       if (microphone) {
         try {
           micStream.current = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -297,7 +310,7 @@ function App() {
       setElapsed(0);
       recorder.start(1000);
       setState('recording');
-      setStatus(bridge ? 'Recording to your selected output folder' : 'Recording · browser preview WebM capture');
+      setStatus(bridge ? `Recording · ${captureSummary}` : `Browser preview · ${captureSummary}`);
     } catch (problem) {
       if (annotationOverlayOpened && bridge) {
         await bridge.closeAnnotationOverlay().catch(() => undefined);
@@ -382,12 +395,12 @@ function App() {
             <a
               className="download-app-link"
               href="/download/windows-app"
-              aria-label="Download FrameCapture for Windows"
-              title="Download FrameCapture for Windows"
+              aria-label="Download the FrameCapture Windows installer"
+              title="Download the FrameCapture Windows installer"
               data-testid="link-download-windows-app"
             >
               <Download aria-hidden="true" size={14} />
-              <span className="download-app-label">Download Windows app</span>
+              <span className="download-app-label">Install for Windows</span>
             </a>
           )}
         </div>

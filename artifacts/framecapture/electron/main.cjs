@@ -22,6 +22,10 @@ let annotationCanvasWindow;
 let annotationToolbarWindow;
 let latestRecordingState = { state: "idle", elapsedSeconds: 0 };
 
+if (process.platform === "win32") {
+  app.setAppUserModelId("app.framecapture.recorder");
+}
+
 const annotationTools = new Set([
   "cursor",
   "pen",
@@ -595,6 +599,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 680,
     title: "FrameCapture",
+    icon: path.join(__dirname, "icon.ico"),
     backgroundColor: "#10131a",
     show: false,
     webPreferences: {
