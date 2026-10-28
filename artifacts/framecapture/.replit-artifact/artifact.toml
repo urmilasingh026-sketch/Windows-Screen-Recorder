@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "FrameCapture — Screen Recorder"
+description = "A Windows desktop screen recorder with display and window capture, 4K/60 FPS controls, microphone and system-audio options, pause and resume, and local MP4 export."
+version = "1.0.0"
+id = "artifacts/framecapture"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22396
+
+[services.development]
+run = "pnpm --filter @workspace/framecapture run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/framecapture", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/framecapture/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22396"
+BASE_PATH = "/"

@@ -5,6 +5,9 @@ dist
 tmp
 out-tsc
 *.tsbuildinfo
+/artifacts/framecapture/dist/
+/artifacts/framecapture/release/
+/artifacts/framecapture/generated-artifacts/
 .expo
 .expo-shared
 .next

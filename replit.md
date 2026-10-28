@@ -1,12 +1,15 @@
-# [Project name]
+# FrameCapture
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Windows desktop screen recorder with local capture, recording controls, and MP4 export.
 
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
+- `pnpm --filter @workspace/framecapture run dev` — run the browser preview
+- `pnpm --filter @workspace/framecapture run desktop:win` — build the Windows x64 installer
+- `pnpm --filter @workspace/framecapture run desktop:portable` — build the Windows portable executable
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string
@@ -30,7 +33,7 @@ _Populate as you build — non-obvious choices a reader couldn't infer from the 
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+FrameCapture records a selected display or application window locally, with configurable capture quality, microphone/system-audio options, pause/resume, and MP4 export.
 
 ## User preferences
 
