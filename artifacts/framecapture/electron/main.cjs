@@ -20,10 +20,12 @@ let selectedSourceId;
 let outputDirectory;
 let annotationCanvasWindow;
 let annotationToolbarWindow;
+let latestRecordingState = { state: "idle", elapsedSeconds: 0 };
 
 const annotationTools = new Set([
   "cursor",
   "pen",
+  "highlighter",
   "arrow",
   "rectangle",
   "spotlight",
@@ -211,7 +213,7 @@ async function openAnnotationOverlays(display) {
     action: "deny",
   }));
 
-  const toolbarWidth = Math.min(560, Math.max(400, bounds.width - 24));
+  const toolbarWidth = Math.min(760, Math.max(400, bounds.width - 24));
   const toolbarHeight = 72;
   annotationToolbarWindow = new BrowserWindow({
     x: bounds.x + Math.round((bounds.width - toolbarWidth) / 2),
@@ -350,6 +352,58 @@ function registerIpcHandlers() {
         type: action.type,
       });
     }
+  });
+
+  ipcMain.on("recording:state", (event, status) => {
+    if (
+      event.sender !== mainWindow?.webContents ||
+      !event.senderFrame?.url?.startsWith("file://") ||
+      !status ||
+      !["idle", "recording", "paused", "stopping"].includes(status.state) ||
+      !Number.isFinite(status.elapsedSeconds)
+    ) {
+      return;
+    }
+
+    latestRecordingState = {
+      state: status.state,
+      elapsedSeconds: Math.max(
+        0,
+        Math.min(24 * 60 * 60, Math.floor(status.elapsedSeconds)),
+      ),
+    };
+    if (
+      annotationToolbarWindow &&
+      !annotationToolbarWindow.isDestroyed()
+    ) {
+      annotationToolbarWindow.webContents.send(
+        "recording:state",
+        latestRecordingState,
+      );
+    }
+  });
+
+  ipcMain.on("recording:request-state", (event) => {
+    if (
+      event.sender !== annotationToolbarWindow?.webContents ||
+      !event.senderFrame?.url?.startsWith("file://")
+    ) {
+      return;
+    }
+    event.sender.send("recording:state", latestRecordingState);
+  });
+
+  ipcMain.on("recording:control", (event, command) => {
+    if (
+      event.sender !== annotationToolbarWindow?.webContents ||
+      !event.senderFrame?.url?.startsWith("file://") ||
+      !["pause", "resume", "stop"].includes(command) ||
+      !mainWindow ||
+      mainWindow.isDestroyed()
+    ) {
+      return;
+    }
+    mainWindow.webContents.send("recording:control", command);
   });
 
   ipcMain.handle("settings:get-output-directory", async (event) => {

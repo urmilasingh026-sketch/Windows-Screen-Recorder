@@ -142,6 +142,80 @@
   background: rgba(211, 216, 232, .15);
 }
 
+.annotation-record-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 100px;
+  padding: 0 2px;
+  color: #e9eaf0;
+  font: 600 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+
+.annotation-record-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: #7c8291;
+}
+
+.annotation-record-dot.is-recording {
+  background: #f2415a;
+  box-shadow: 0 0 0 3px rgba(242, 65, 90, .16);
+}
+
+.annotation-record-dot.is-paused {
+  background: #ffc928;
+  box-shadow: 0 0 0 3px rgba(255, 201, 40, .15);
+}
+
+.annotation-record-time {
+  color: #b6bac7;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.annotation-record-controls {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.annotation-record-button {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: #e9eaf0;
+  background: rgba(255, 255, 255, .07);
+  transition: color .16s ease, background-color .16s ease, transform .16s ease;
+}
+
+.annotation-record-button:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, .15);
+}
+
+.annotation-record-button:active {
+  transform: scale(.94);
+}
+
+.annotation-record-button.is-stop {
+  color: #ff7585;
+}
+
+.annotation-record-button.is-stop:hover {
+  color: #fff;
+  background: rgba(242, 65, 90, .28);
+}
+
 .annotation-toolbar button:focus-visible {
   outline: 2px solid #f1f2ff;
   outline-offset: 3px;
@@ -160,6 +234,8 @@
   .annotation-tool-button { width: 31px; height: 34px; border-radius: 9px; }
   .annotation-color-group { gap: 5px; }
   .annotation-color-button { width: 17px; height: 17px; }
+  .annotation-record-status { min-width: 84px; gap: 4px; font-size: 9px; }
+  .annotation-record-button { width: 31px; height: 34px; border-radius: 9px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

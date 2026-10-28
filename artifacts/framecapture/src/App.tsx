@@ -19,6 +19,7 @@ import { AnnotationCanvas, AnnotationToolbar } from './components/AnnotationOver
 
 type Source = { id: string; name: string; type: 'screen' | 'window'; thumbnail: string; displayId?: string };
 type Recording = { id: string; name: string; path: string; createdAt: string; size: number; duration: number };
+type RecordingCommand = 'pause' | 'resume' | 'stop';
 type FrameCaptureBridge = {
   getSources(): Promise<Source[]>;
   selectSource(id: string): Promise<void>;
@@ -33,6 +34,8 @@ type FrameCaptureBridge = {
   openAnnotationOverlay(sourceId: string): Promise<void>;
   closeAnnotationOverlay(): Promise<void>;
   onExportProgress(callback: (progress: number) => void): () => void;
+  reportRecordingState(state: RecordState, elapsedSeconds: number): void;
+  onRecordingControl(callback: (command: RecordingCommand) => void): () => void;
 };
 declare global {
   interface Window { frameCapture?: FrameCaptureBridge }
@@ -80,6 +83,7 @@ function App() {
   const pendingWrites = useRef<Promise<void>[]>([]);
   const stoppingRef = useRef(false);
   const chunkWriteFailed = useRef(false);
+  const elapsedSeconds = Math.floor(elapsed);
 
   const refreshRecordings = useCallback(async () => {
     if (!bridge) return;
@@ -121,6 +125,11 @@ function App() {
     const timer = window.setInterval(() => setElapsed(carryTime.current + Math.floor((Date.now() - startedAt.current) / 1000)), 250);
     return () => window.clearInterval(timer);
   }, [state]);
+
+  useEffect(() => {
+    if (!bridge) return;
+    bridge.reportRecordingState(state, elapsedSeconds);
+  }, [bridge, state, elapsedSeconds]);
 
   useEffect(() => {
     if (!bridge) return;
@@ -305,7 +314,7 @@ function App() {
     }
   };
 
-  const pauseRecording = () => {
+  const pauseRecording = useCallback(() => {
     const recorder = mediaRecorder.current;
     if (!recorder || recorder.state !== 'recording') return;
     recorder.pause();
@@ -313,16 +322,16 @@ function App() {
     setElapsed(carryTime.current);
     setState('paused');
     setStatus('Recording paused');
-  };
-  const resumeRecording = () => {
+  }, []);
+  const resumeRecording = useCallback(() => {
     const recorder = mediaRecorder.current;
     if (!recorder || recorder.state !== 'paused') return;
     recorder.resume();
     startedAt.current = Date.now();
     setState('recording');
-    setStatus('Recording to your selected output folder');
-  };
-  const stopRecording = async () => {
+    setStatus(bridge ? 'Recording to your selected output folder' : 'Recording · browser preview WebM capture');
+  }, [bridge]);
+  const stopRecording = useCallback(async () => {
     const recorder = mediaRecorder.current;
     if (!recorder || recorder.state === 'inactive') return;
     if (recorder.state === 'recording') {
@@ -333,7 +342,16 @@ function App() {
     setState('stopping');
     setStatus('Finishing recording…');
     recorder.stop();
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!bridge) return;
+    return bridge.onRecordingControl((command) => {
+      if (command === 'pause') pauseRecording();
+      else if (command === 'resume') resumeRecording();
+      else if (command === 'stop') void stopRecording();
+    });
+  }, [bridge, pauseRecording, resumeRecording, stopRecording]);
 
   const reveal = async (item: Recording) => {
     if (bridge) {

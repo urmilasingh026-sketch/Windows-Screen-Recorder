@@ -26,4 +26,11 @@ contextBridge.exposeInMainWorld("frameCapture", {
     return () =>
       ipcRenderer.removeListener("recording:export-progress", listener);
   },
+  reportRecordingState: (state, elapsedSeconds) =>
+    ipcRenderer.send("recording:state", { state, elapsedSeconds }),
+  onRecordingControl: (callback) => {
+    const listener = (_event, command) => callback(command);
+    ipcRenderer.on("recording:control", listener);
+    return () => ipcRenderer.removeListener("recording:control", listener);
+  },
 });

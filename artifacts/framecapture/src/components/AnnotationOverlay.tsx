@@ -3,24 +3,36 @@ import type { CSSProperties, PointerEvent } from 'react';
 import {
   MousePointer2,
   Pencil,
+  Highlighter,
   MoveUpRight,
   Square,
   Sun,
   Undo2,
   Trash2,
+  Pause,
+  Play,
 } from 'lucide-react';
 import './AnnotationOverlay.css';
 
-export type AnnotationTool = 'cursor' | 'pen' | 'arrow' | 'rectangle' | 'spotlight';
+export type AnnotationTool = 'cursor' | 'pen' | 'highlighter' | 'arrow' | 'rectangle' | 'spotlight';
 export type AnnotationAction =
   | { type: 'tool'; tool: AnnotationTool }
   | { type: 'color'; color: string }
   | { type: 'undo' }
   | { type: 'clear' };
 
+type RecordingCommand = 'pause' | 'resume' | 'stop';
+type RecordingStatus = {
+  state: 'idle' | 'recording' | 'paused' | 'stopping';
+  elapsedSeconds: number;
+};
+
 type AnnotationOverlayBridge = {
   post: (action: AnnotationAction) => void;
   onAction: (callback: (action: AnnotationAction) => void) => () => void;
+  requestRecordingState: () => void;
+  sendRecordingControl: (command: RecordingCommand) => void;
+  onRecordingState: (callback: (status: RecordingStatus) => void) => () => void;
 };
 
 declare global {
@@ -31,7 +43,7 @@ declare global {
 
 type Point = { x: number; y: number };
 type Mark =
-  | { kind: 'pen'; points: Point[]; color: string }
+  | { kind: 'pen' | 'highlighter'; points: Point[]; color: string }
   | { kind: 'arrow' | 'rectangle'; from: Point; to: Point; color: string };
 
 const COLORS = [
@@ -45,10 +57,21 @@ const COLORS = [
 const TOOL_BUTTONS: { tool: AnnotationTool; label: string; Icon: typeof MousePointer2 }[] = [
   { tool: 'cursor', label: 'Cursor tool', Icon: MousePointer2 },
   { tool: 'pen', label: 'Pen tool', Icon: Pencil },
+  { tool: 'highlighter', label: 'Marker / highlighter tool', Icon: Highlighter },
   { tool: 'arrow', label: 'Arrow tool', Icon: MoveUpRight },
   { tool: 'rectangle', label: 'Rectangle tool', Icon: Square },
   { tool: 'spotlight', label: 'Spotlight tool', Icon: Sun },
 ];
+
+function formatRecordingTime(seconds: number) {
+  const total = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const remainingSeconds = total % 60;
+  return [hours, minutes, remainingSeconds]
+    .map((value) => String(value).padStart(2, '0'))
+    .join(':');
+}
 
 function postAnnotationAction(action: AnnotationAction) {
   try {
@@ -61,6 +84,18 @@ function postAnnotationAction(action: AnnotationAction) {
 export function AnnotationToolbar() {
   const [tool, setTool] = useState<AnnotationTool>('cursor');
   const [color, setColor] = useState(COLORS[0].value);
+  const [recording, setRecording] = useState<RecordingStatus>({
+    state: 'idle',
+    elapsedSeconds: 0,
+  });
+
+  useEffect(() => {
+    const overlay = window.annotationOverlay;
+    if (!overlay) return;
+    const unsubscribe = overlay.onRecordingState(setRecording);
+    overlay.requestRecordingState();
+    return unsubscribe;
+  }, []);
 
   const chooseTool = (next: AnnotationTool) => {
     setTool(next);
@@ -71,6 +106,13 @@ export function AnnotationToolbar() {
     postAnnotationAction({ type: 'color', color: next });
   };
   const sendCommand = (action: AnnotationAction) => postAnnotationAction(action);
+  const sendRecordingControl = (command: RecordingCommand) => {
+    try {
+      window.annotationOverlay?.sendRecordingControl(command);
+    } catch {
+      // Recording controls are only available in the Windows desktop overlay.
+    }
+  };
 
   return (
     <div className="annotation-toolbar" role="toolbar" aria-label="Screen annotation tools">
@@ -129,6 +171,62 @@ export function AnnotationToolbar() {
           <Trash2 aria-hidden="true" size={17} strokeWidth={1.8} />
         </button>
       </div>
+
+      <span className="annotation-toolbar-divider" aria-hidden="true" />
+
+      <div className="annotation-record-status" role="status" aria-live="polite">
+        <span
+          className={`annotation-record-dot${recording.state === 'recording' ? ' is-recording' : recording.state === 'paused' ? ' is-paused' : ''}`}
+          aria-hidden="true"
+        />
+        <span className="annotation-record-label">
+          {recording.state === 'recording'
+            ? 'REC'
+            : recording.state === 'paused'
+              ? 'PAUSED'
+              : recording.state === 'stopping'
+                ? 'SAVING'
+                : 'READY'}
+        </span>
+        <time className="annotation-record-time">
+          {formatRecordingTime(recording.elapsedSeconds)}
+        </time>
+      </div>
+
+      {(recording.state === 'recording' || recording.state === 'paused') && (
+        <div className="annotation-record-controls" role="group" aria-label="Recording controls">
+          {recording.state === 'recording' ? (
+            <button
+              type="button"
+              className="annotation-record-button"
+              aria-label="Pause recording"
+              title="Pause recording"
+              onClick={() => sendRecordingControl('pause')}
+            >
+              <Pause aria-hidden="true" size={17} fill="currentColor" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="annotation-record-button"
+              aria-label="Resume recording"
+              title="Resume recording"
+              onClick={() => sendRecordingControl('resume')}
+            >
+              <Play aria-hidden="true" size={17} fill="currentColor" />
+            </button>
+          )}
+          <button
+            type="button"
+            className="annotation-record-button is-stop"
+            aria-label="Stop recording"
+            title="Stop recording"
+            onClick={() => sendRecordingControl('stop')}
+          >
+            <Square aria-hidden="true" size={15} fill="currentColor" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -174,13 +272,20 @@ export function AnnotationCanvas() {
       context.save();
       context.strokeStyle = mark.color;
       context.fillStyle = mark.color;
-      context.lineWidth = 3;
+        context.globalAlpha = mark.kind === 'highlighter' ? 0.4 : 1;
+        context.lineWidth = mark.kind === 'highlighter' ? 14 : 3;
       context.lineCap = 'round';
       context.lineJoin = 'round';
-      if (mark.kind === 'pen') {
+        if (mark.kind === 'pen' || mark.kind === 'highlighter') {
         if (mark.points.length === 1) {
           context.beginPath();
-          context.arc(mark.points[0].x, mark.points[0].y, 1.6, 0, Math.PI * 2);
+            context.arc(
+              mark.points[0].x,
+              mark.points[0].y,
+              mark.kind === 'highlighter' ? 7 : 1.6,
+              0,
+              Math.PI * 2,
+            );
           context.fill();
         } else {
           context.beginPath();
@@ -188,9 +293,9 @@ export function AnnotationCanvas() {
           mark.points.slice(1).forEach((point) => context.lineTo(point.x, point.y));
           context.stroke();
         }
-      } else if (mark.kind === 'rectangle') {
+        } else if (mark.kind === 'rectangle') {
         context.strokeRect(mark.from.x, mark.from.y, mark.to.x - mark.from.x, mark.to.y - mark.from.y);
-      } else {
+        } else if (mark.kind === 'arrow') {
         drawArrow(context, mark.from, mark.to);
       }
       context.restore();
@@ -261,7 +366,9 @@ export function AnnotationCanvas() {
     }
     event.currentTarget.setPointerCapture(event.pointerId);
     drawingPointer.current = event.pointerId;
-    if (tool === 'pen') setActiveMark({ kind: 'pen', points: [point], color });
+    if (tool === 'pen' || tool === 'highlighter') {
+      setActiveMark({ kind: tool, points: [point], color });
+    }
     else setActiveMark({ kind: tool, from: point, to: point, color });
   };
 
@@ -274,7 +381,9 @@ export function AnnotationCanvas() {
     if (drawingPointer.current !== event.pointerId) return;
     setActiveMark((current) => {
       if (!current) return current;
-      if (current.kind === 'pen') return { ...current, points: [...current.points, point] };
+      if (current.kind === 'pen' || current.kind === 'highlighter') {
+        return { ...current, points: [...current.points, point] };
+      }
       return { ...current, to: point };
     });
   };
